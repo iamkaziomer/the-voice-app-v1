@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import IssueCard from '../components/issueCard';
 import Header from '../components/Header';
-function HomePage() {
-  const [issues, setIssues] = useState([]);  // State to store issues
+import { Box, Container, Grid, Typography } from '@mui/material';
 
-  // Fetch issues from backend when the component is mounted
+function HomePage() {
+  const [issues, setIssues] = useState([]);
+
   useEffect(() => {
     const fetchIssues = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/issues'); // Your backend API URL
+        const response = await fetch('http://localhost:5000/api/issues');
         if (response.ok) {
-          const data = await response.json();  // Parse the JSON data
-          setIssues(data);  // Set issues to the state
+          const data = await response.json();
+          setIssues(data);
         } else {
           console.error('Failed to fetch issues');
         }
@@ -20,24 +21,33 @@ function HomePage() {
       }
     };
 
-    fetchIssues();  // Call the fetch function
-  }, []);  // Empty dependency array, so it only runs once on component mount
+    fetchIssues();
+  }, []);
 
   return (
-    <div>
-      <Header/>
-      <h1>Issues</h1>
-      <div className='cardContainer'>
-        {issues.length > 0 ? (
-          issues.map((issue) => (
-            <IssueCard key={issue._id} issue={issue} /> // Pass each issue to IssueCard
-          ))
-        ) : (
-          <p>No issues found</p>  // Display a message if no issues are found
-        )}
-      </div>
-    
-    </div>
+    <Box>
+      <Header />
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ mb: 4 }}>
+          Issues
+        </Typography>
+        <Grid container spacing={3}>
+          {issues.length > 0 ? (
+            issues.map((issue) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={issue._id}>
+                <IssueCard issue={issue} />
+              </Grid>
+            ))
+          ) : (
+            <Grid item xs={12}>
+              <Typography variant="body1" color="text.secondary" textAlign="center">
+                No issues found
+              </Typography>
+            </Grid>
+          )}
+        </Grid>
+      </Container>
+    </Box>
   );
 }
 

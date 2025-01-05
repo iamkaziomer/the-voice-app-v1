@@ -1,0 +1,166 @@
+/* RecentIssues.css */
+.issues-container {
+  background: linear-gradient(135deg, #252525, #D1F7D6); /* Light blue to light green gradient */
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  padding: 24px;
+  width: 100%;
+}
+
+.issues-header {
+  font-family: 'Inter', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 20px;
+}
+
+.issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.issue-card {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  background: linear-gradient(135deg, #C8E6F5, #D1F7D6); /* Light blue to light green gradient */
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.issue-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.issue-image-container {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+
+.issue-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.issue-image-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #C8E6F5, #D1F7D6); /* Light blue to light green gradient */
+  border-radius: 4px;
+}
+
+.issue-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.issue-main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.issue-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.issue-description {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #666666;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+  height: 40px;
+}
+
+.issue-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.issue-metadata {
+  display: flex;
+  gap: 16px;
+}
+
+.metadata-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.metadata-icon {
+  font-size: 16px;
+  color: #666666;
+}
+
+.metadata-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #666666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.issue-date {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  color: #666666;
+}
+
+.issue-card-skeleton {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+}
+
+.error-message {
+  background: linear-gradient(135deg, #C8E6F5, #D1F7D6); /* Light blue to light green gradient */
+  color: #e53935;
+  text-align: center;
+  padding: 24px;
+}
+
+@media (max-width: 600px) {
+  .issues-container {
+    padding: 16px;
+  }
+  
+  .issue-card {
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .issue-metadata {
+    gap: 12px;
+  }
+  
+  .metadata-text {
+    max-width: 120px;
+  }
+}

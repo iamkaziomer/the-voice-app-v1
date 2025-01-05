@@ -1,150 +1,270 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Issue from '../models/issue.js';
+import auth from '../middleware/auth.js';
+
 const router = express.Router();
 
-// Route to save a new issue
-router.post('/', async (request, response) => {
-    try {
-        const {
-            title,
-            description,
-            status = 'open', // Default status to 'open' if not provided
-            priority,
-            concernAuthority,
-            reporter,
-            comments,
-            images,
-            tags,
-            colony,
-            pincode,
-            location // Location includes latitude and longitude
-        } = request.body;
-
-        // Validate required fields
-        if (
-            !title || 
-            !description || 
-            !priority || 
-            !concernAuthority || 
-            !reporter || 
-            !Array.isArray(comments) || 
-            !Array.isArray(images) || 
-            !Array.isArray(tags) ||
-            !colony || // Validate colony
-            !pincode || // Validate pincode
-            !location || // Validate location
-            !Array.isArray(location.coordinates) || location.coordinates.length !== 2
-        ) {
-            return response.status(400).json({ error: "All fields are required and must be valid!" });
-        }
-
-        // Check additional validation for images (max 3)
-        if (images.length > 3) {
-            return response.status(400).json({ error: "You can upload a maximum of 3 images." });
-        }
-
-        // Validate the status if provided (optional field)
-        const validStatuses = ['open', 'in-progress', 'resolved', 'closed', 'complete'];
-        if (status && !validStatuses.includes(status)) {
-            return response.status(400).json({ error: "Invalid status value" });
-        }
-
-        // Adding a new issue
-        const newIssue = new Issue({
-            title,
-            description,
-            status,  // The status will be 'open' if not provided
-            priority,
-            concernAuthority,
-            reporter,
-            comments,
-            images,
-            tags,
-            colony,
-            pincode,
-            location
-        });
-
-        await newIssue.save(); // Save issue to database
-        response.status(201).json({ message: "Issue created successfully", issue: newIssue });
-
-    } catch (error) {
-        console.error("Error creating issue:", error);
-        response.status(500).json({ error: "An error occurred while creating the issue", details: error.message });
-    }
-});
-
-// Route to fetch all issues
-router.get('/', async (request, response) => {
+// Get all issues
+router.get('/', async (req, res) => {
   try {
-      console.log('Fetching issues...');
-      const issues = await Issue.find({});
-      console.log('Found issues:', issues);
-      return response.status(200).json(issues);
+    const { sort, limit } = req.query;
+    let query = Issue.find();
+
+    // Add sorting
+    if (sort === 'recent') {
+      query = query.sort({ updatedAt: -1 });
+    } else if (sort === 'supported') {
+      query = query.sort({ 'upvotes.count': -1 });
+    } else {
+      query = query.sort({ createdAt: -1 });
+    }
+
+    // Add limit if specified
+    if (limit) {
+      query = query.limit(Number(limit));
+    }
+
+    const issues = await query
+      .populate('reporter', 'name')
+      .populate('comments.user', 'name')
+      .exec();
+    
+    res.json(issues);
   } catch (error) {
-      console.error('Error fetching issues:', error);
-      response.status(500).json({ 
-          message: error.message,
-          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
+    console.error('Error fetching issues:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching issues',
+      error: error.message
+    });
   }
 });
 
-// Route to fetch issues by area (colony and pincode)
-router.get('/by-address', async (request, response) => {
-    const { colony, pincode } = request.query;
+// Create new issue
+router.post('/', auth, async (req, res) => {
+  try {
+    console.log('Create issue request received');
+    console.log('Request body:', req.body);
 
-    try {
-        // Query issues based on provided colony and pincode
-        const issues = await Issue.find({
-            colony, // Filter by colony if provided
-            pincode // Filter by pincode if provided
-        });
+    const {
+      title,
+      description,
+      concernAuthority,
+      colony,
+      pincode,
+      location,
+      images = [],
+      tags = [],
+      priority = 'low'
+    } = req.body;
 
-        if (issues.length === 0) {
-            return response.status(404).json({ message: "No issues found for the given address details." });
-        }
-
-        return response.status(200).json(issues);
-    } catch (error) {
-        console.log(error);
-        response.status(500).send({ message: error.message });
+    // Validate required fields
+    if (!title || !description || !concernAuthority || !colony || !pincode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields'
+      });
     }
+
+    // Create new issue with proper initialization
+    const issue = new Issue({
+      title,
+      description,
+      concernAuthority,
+      colony,
+      pincode,
+      location: location || {
+        type: 'Point',
+        coordinates: [0, 0]
+      },
+      images,
+      tags,
+      priority,
+      reporter: req.userId,  // This comes from auth middleware
+      status: 'open',
+      upvotes: {
+        count: 0,
+        users: []
+      },
+      target: 100,
+      comments: []
+    });
+
+    console.log('Attempting to save issue');
+    const savedIssue = await issue.save();
+    console.log('Issue saved successfully');
+
+    res.status(201).json({
+      success: true,
+      issue: savedIssue
+    });
+  } catch (error) {
+    console.error('Error creating issue:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating issue',
+      error: error.message
+    });
+  }
 });
 
-// Route to fetch issues near a given location using geospatial queries
-router.get('/nearby', async (request, response) => {
-    const { longitude, latitude, radius } = request.query;
+// Get single issue
+router.get('/:id', async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.id)
+      .populate('reporter', 'name')
+      .populate('comments.user', 'name');
 
-    // Validate if coordinates and radius are provided
-    if (!longitude || !latitude || !radius) {
-        return response.status(400).json({ error: "Longitude, latitude, and radius are required" });
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Issue not found'
+      });
     }
 
-    try {
-        // Fetch issues near the specified location using geospatial query
-        const issues = await Issue.find({
-            location: {
-                $near: {
-                    $geometry: {
-                        type: 'Point',
-                        coordinates: [parseFloat(longitude), parseFloat(latitude)] // [longitude, latitude]
-                    },
-                    $maxDistance: parseInt(radius) * 1000 // Convert radius to meters
-                }
-            }
-        });
-
-        if (issues.length === 0) {
-            return response.status(404).json({ message: "No issues found within the specified radius." });
-        }
-
-        return response.status(200).json(issues);
-    } catch (error) {
-        console.log(error);
-        response.status(500).send({ message: error.message });
-    }
+    res.json({
+      success: true,
+      issue
+    });
+  } catch (error) {
+    console.error('Error fetching issue:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching issue',
+      error: error.message
+    });
+  }
 });
 
+// Upvote an issue
+router.post('/:issueId/upvote', auth, async (req, res) => {
+  try {
+    console.log('Upvote request received for issueId:', req.params.issueId);
+    console.log('User ID from auth:', req.userId);
+
+    // Validate MongoDB ID
+    if (!mongoose.Types.ObjectId.isValid(req.params.issueId)) {
+      console.log('Invalid issue ID format');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid issue ID format'
+      });
+    }
+
+    // Find the issue and ensure it exists
+    const issue = await Issue.findById(req.params.issueId);
+    console.log('Found issue:', issue ? 'yes' : 'no');
+
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Issue not found'
+      });
+    }
+
+    // Convert userId to ObjectId
+    const userObjectId = new mongoose.Types.ObjectId(req.userId);
+    
+    // Check if user has already upvoted
+    const hasUpvoted = issue.upvotes.users.some(id => id.equals(userObjectId));
+    console.log('Has user already upvoted:', hasUpvoted);
+
+    if (hasUpvoted) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have already upvoted this issue'
+      });
+    }
+
+    // Add upvote
+    issue.upvotes.users.push(userObjectId);
+    issue.upvotes.count = issue.upvotes.users.length;
+    console.log('Saving issue with new upvote count:', issue.upvotes.count);
+
+    await issue.save();
+    console.log('Issue saved successfully');
+
+    return res.json({
+      success: true,
+      message: 'Upvote added successfully',
+      upvoteCount: issue.upvotes.count
+    });
+
+  } catch (error) {
+    console.error('Detailed upvote error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while processing upvote',
+      error: error.message
+    });
+  }
+});
+
+// Get analytics
+router.get('/analytics', async (req, res) => {
+  try {
+    const [totalIssues, resolvedIssues, pendingIssues] = await Promise.all([
+      Issue.countDocuments(),
+      Issue.countDocuments({ status: 'resolved' }),
+      Issue.countDocuments({ status: { $in: ['open', 'in-progress'] } })
+    ]);
+
+    res.json({
+      totalIssues,
+      resolvedIssues,
+      pendingIssues
+    });
+  } catch (error) {
+    console.error('Error fetching analytics:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching analytics',
+      error: error.message
+    });
+  }
+});
+
+// Remove upvote
+router.post('/:issueId/remove-upvote', auth, async (req, res) => {
+  try {
+    const issue = await Issue.findById(req.params.issueId);
+    if (!issue) {
+      return res.status(404).json({
+        success: false,
+        message: 'Issue not found'
+      });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(req.userId);
+    const userIndex = issue.upvotes.users.findIndex(id => id.equals(userObjectId));
+
+    if (userIndex === -1) {
+      return res.status(400).json({
+        success: false,
+        message: 'You have not upvoted this issue'
+      });
+    }
+
+    // Remove upvote
+    issue.upvotes.users.splice(userIndex, 1);
+    issue.upvotes.count = issue.upvotes.users.length;
+    await issue.save();
+
+    return res.json({
+      success: true,
+      message: 'Upvote removed successfully',
+      upvoteCount: issue.upvotes.count
+    });
+
+  } catch (error) {
+    console.error('Error removing upvote:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Error removing upvote',
+      error: error.message
+    });
+  }
+});
 
 export default router;

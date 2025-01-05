@@ -1,33 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
 import HomePage from './pages/HomePage';
+import PrimaryPage from './pages/PrimaryPage';
+import PriorityBoard from './pages/PriorityBoard';
 import UploadIssuePage from './pages/UploadIssuePage';
+import Header from './components/Header';
 import './App.css';
 
 function App() {
-  const [issues, setIssues] = useState([]);
-
-  // Fetch issues data from the backend API
-  useEffect(() => {
-    const fetchIssues = async () => {
-      try {
-        const response = await fetch('http://localhost:5000/api/issues'); // Replace with your actual API URL
-        const data = await response.json();
-        setIssues(data); // Set the issues state
-      } catch (error) {
-        console.error("Error fetching issues:", error);
-      }
-    };
-    fetchIssues();
-  }, []); // Empty array to run the effect only once on component mount
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<HomePage issues={issues} />} /> {/* Pass issues as a prop to HomePage */}
-        <Route path="/upload-issue" element={<UploadIssuePage />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <div className="app">
+          <Header />
+          
+          <main className="main-content">
+            <Routes>
+              {/* Redirect root to primary page */}
+              <Route path="/" element={<Navigate to="/primary" replace />} />
+              
+              {/* Main routes */}
+              <Route path="/primary" element={<PrimaryPage />} />
+              <Route path="/issues" element={<HomePage />} />
+              <Route path="/priority" element={<PriorityBoard />} />
+              <Route path="/upload-issue" element={<UploadIssuePage />} />
+              
+              {/* Catch all route - redirect to primary */}
+              <Route path="*" element={<Navigate to="/primary" replace />} />
+            </Routes>
+          </main>
+        </div>
+      </Router>
+    </AuthProvider>
   );
 }
 

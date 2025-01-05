@@ -1,113 +1,248 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { styled, alpha } from '@mui/material/styles';
-import AppBar from '@mui/material/AppBar';
-import Box from '@mui/material/Box';
-import Toolbar from '@mui/material/Toolbar';
-import IconButton from '@mui/material/IconButton';
-import Typography from '@mui/material/Typography';
-import InputBase from '@mui/material/InputBase';
+import { useAuth } from '../context/AuthContext';
+import voiceLogo from '../assets/voice-logo-png.png';
+
+import {
+  AppBar,
+  Toolbar,
+  Button,
+  Box,
+  Typography,
+  IconButton,
+  Menu,
+  MenuItem,
+  Container,
+  styled,
+  useTheme,
+  useMediaQuery
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import SearchIcon from '@mui/icons-material/Search';
-import Button from '@mui/material/Button';
+import LoginModal from './LoginModal';
+import SignupModal from './SignupModal';
 
-// Styled components for Search bar
-const Search = styled('div')(({ theme }) => ({
-  position: 'relative',
-  borderRadius: theme.shape.borderRadius,
-  backgroundColor: alpha(theme.palette.common.white, 0.15),
+// Custom styled components
+const StyledAppBar = styled(AppBar)({
+  backgroundColor: 'white',
+  boxShadow: 'none',
+  borderBottom: '1px solid rgba(0,0,0,0.06)'
+});
+
+const NavButton = styled(Button)({
+  color: '#26313E',
+  textTransform: 'none',
+  fontSize: '15px',
+  padding: '6px 16px',
   '&:hover': {
-    backgroundColor: alpha(theme.palette.common.white, 0.25),
-  },
-  marginLeft: 0,
-  width: '100%',
-  [theme.breakpoints.up('sm')]: {
-    marginLeft: theme.spacing(1),
-    width: 'auto',
-  },
-}));
+    backgroundColor: 'transparent',
+    color: '#26313E',
+    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))',
+  }
+});
 
-const SearchIconWrapper = styled('div')(({ theme }) => ({
-  padding: theme.spacing(0, 2),
-  height: '100%',
-  position: 'absolute',
-  pointerEvents: 'none',
+const SignUpButton = styled(Button)({
+  backgroundColor: '#26313E',
+  color: 'white',
+  textTransform: 'none',
+  fontSize: '15px',
+  padding: '8px 24px',
+  borderRadius: '6px',
+  '&:hover': {
+    backgroundColor: '#26313E',
+    filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.15))',
+  }
+});
+
+const LogoContainer = styled(Box)({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'center',
-}));
-
-const StyledInputBase = styled(InputBase)(({ theme }) => ({
-  color: 'inherit',
-  width: '100%',
-  '& .MuiInputBase-input': {
-    padding: theme.spacing(1, 1, 1, 0),
-    paddingLeft: `calc(1em + ${theme.spacing(4)})`,
-    transition: theme.transitions.create('width'),
-    [theme.breakpoints.up('sm')]: {
-      width: '12ch',
-      '&:focus': {
-        width: '20ch',
-      },
-    },
-  },
-}));
+  gap: '12px',
+  cursor: 'pointer'
+});
 
 function Header() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isSignupOpen, setIsSignupOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState(null);
 
-  // Handle the click to navigate to upload issue page
-  const handleUploadClick = () => {
-    navigate('/upload-issue');
+  const handleMenuClick = (event) => {
+    setMenuAnchor(event.currentTarget);
   };
 
+  const handleMenuClose = () => {
+    setMenuAnchor(null);
+  };
+
+  const handleNavigate = (path) => {
+    navigate(path);
+    handleMenuClose();
+  };
+
+  const handleUploadClick = () => {
+    if (user) {
+      navigate('/upload-issue');
+    } else {
+      setIsLoginOpen(true);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const switchToSignup = () => {
+    setIsLoginOpen(false);
+    setIsSignupOpen(true);
+  };
+
+  const switchToLogin = () => {
+    setIsSignupOpen(false);
+    setIsLoginOpen(true);
+  };
+
+  const navigationItems = [
+    { label: 'Dashboard', path: '/primary' },
+    { label: 'Priority Board', path: '/priority' },
+    { label: 'All Issues', path: '/issues' }
+  ];
+
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          {/* Menu Button */}
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="open drawer"
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
+    <>
+      <StyledAppBar position="fixed">
+        <Container maxWidth="xl">
+          <Toolbar sx={{ justifyContent: 'space-between', padding: '8px 0' }}>
+            {/* Logo Section */}
+            <LogoContainer onClick={() => navigate('/')} sx={{ flex: isMobile ? 'auto' : 1 }}>
+            <img 
+  src={voiceLogo}
+  alt="Voice Logo" 
+  style={{ height: '80px', width: 'auto' }}
+/>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: '#26313E',
+                  fontSize: '20px',
+                  fontWeight: 600,
+                  display: { xs: 'none', sm: 'block' }
+                }}
+              >
+                VOICE
+              </Typography>
+            </LogoContainer>
 
-          {/* Title */}
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ flexGrow: 1, display: { xs: 'none', sm: 'block' } }}
-          >
-            Issue Tracker
-          </Typography>
+            {/* Mobile Menu */}
+            {isMobile && (
+              <>
+                <IconButton
+                  size="large"
+                  edge="start"
+                  color="inherit"
+                  aria-label="menu"
+                  onClick={handleMenuClick}
+                  sx={{ color: '#26313E' }}
+                >
+                  <MenuIcon />
+                </IconButton>
 
-          {/* Search Bar */}
-          <Search>
-            <SearchIconWrapper>
-              <SearchIcon />
-            </SearchIconWrapper>
-            <StyledInputBase
-              placeholder="Search…"
-              inputProps={{ 'aria-label': 'search' }}
-            />
-          </Search>
+                <Menu
+                  anchorEl={menuAnchor}
+                  open={Boolean(menuAnchor)}
+                  onClose={handleMenuClose}
+                >
+                  {navigationItems.map((item) => (
+                    <MenuItem 
+                      key={item.path} 
+                      onClick={() => handleNavigate(item.path)}
+                    >
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                  {user && (
+                    <MenuItem onClick={handleUploadClick}>Upload Issue</MenuItem>
+                  )}
+                </Menu>
+              </>
+            )}
 
-          {/* Upload Issue Button */}
-          <Button
-            color="inherit"
-            onClick={handleUploadClick}
-            sx={{ ml: 2 }}
-          >
-            Upload Issue
-          </Button>
-        </Toolbar>
-      </AppBar>
-    </Box>
+            {/* Desktop Navigation */}
+            {!isMobile && (
+              <>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2,
+                  flex: 2,
+                  justifyContent: 'center'
+                }}>
+                  {navigationItems.map((item) => (
+                    <NavButton 
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                    >
+                      {item.label}
+                    </NavButton>
+                  ))}
+                </Box>
+
+                {/* Auth Section */}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2,
+                  flex: 1,
+                  justifyContent: 'flex-end'
+                }}>
+                  {user ? (
+                    <>
+                      <NavButton onClick={handleUploadClick}>
+                        Upload Issue
+                      </NavButton>
+                      <NavButton onClick={handleLogout}>
+                        Logout
+                      </NavButton>
+                    </>
+                  ) : (
+                    <>
+                      <NavButton onClick={() => setIsLoginOpen(true)}>
+                        Login
+                      </NavButton>
+                      <SignUpButton 
+                        onClick={() => setIsSignupOpen(true)}
+                        variant="contained"
+                        disableElevation
+                      >
+                        Sign up
+                      </SignUpButton>
+                    </>
+                  )}
+                </Box>
+              </>
+            )}
+          </Toolbar>
+        </Container>
+      </StyledAppBar>
+
+      <Toolbar /> {/* Spacing element */}
+
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        switchToSignup={switchToSignup}
+      />
+      
+      <SignupModal
+        isOpen={isSignupOpen}
+        onClose={() => setIsSignupOpen(false)}
+        switchToLogin={switchToLogin}
+      />
+    </>
   );
 }
 

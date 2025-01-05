@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { uploadImages } from '../services/imageService';
 import {
   Box,
   Container,
@@ -9,9 +11,13 @@ import {
   Button,
   Alert,
   CircularProgress,
-  Paper
+  Paper,
+  IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import Header from '../components/Header';
+import './UploadIssuePage.css';
 
 const authorities = [
   "Hyderabad Metropolitan Water Supply and Sewerage Board (HMWSSB)",
@@ -26,21 +32,27 @@ const authorities = [
   "Hyderabad District Collector's Office"
 ];
 
+const priorityLevels = [
+  { value: 'low', label: 'Low Priority' },
+  { value: 'medium', label: 'Medium Priority' },
+  { value: 'high', label: 'High Priority' }
+];
+
 function UploadIssuePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     concernAuthority: '',
     colony: '',
     pincode: '',
-    location: { coordinates: [] },
+    location: { type: 'Point', coordinates: [] },
     images: [],
-    comments: [],
     tags: [],
     status: 'open',
-    priority: 'low', // This will be updated based on signs later
-    reporter: 'user' // This should be updated with actual user info when auth is implemented
+    priority: 'low'
   });
 
   const [loading, setLoading] = useState(false);
@@ -50,11 +62,15 @@ function UploadIssuePage() {
   const [imageUrls, setImageUrls] = useState([]);
 
   useEffect(() => {
-    // Get user's location when component mounts
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setFormData(prev => ({
+          setFormData((prev) => ({
             ...prev,
             location: {
               type: 'Point',
@@ -68,7 +84,11 @@ function UploadIssuePage() {
         }
       );
     }
-  }, []);
+
+    return () => {
+      imageUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [user, navigate, imageUrls]);
 
   const handleImageChange = (event) => {
     const files = Array.from(event.target.files);
@@ -77,15 +97,13 @@ function UploadIssuePage() {
       return;
     }
     setImageFiles(files);
-    // Create preview URLs
-    const urls = files.map(file => URL.createObjectURL(file));
+    const urls = files.map((file) => URL.createObjectURL(file));
     setImageUrls(urls);
   };
 
-  const uploadToS3 = async (file) => {
-    // This is a placeholder for AWS S3 upload logic
-    // You'll need to implement this with your AWS credentials
-    return 'https://your-s3-bucket.amazonaws.com/image-url';
+  const handleImageDelete = (index) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (event) => {
@@ -94,33 +112,40 @@ function UploadIssuePage() {
     setError(null);
 
     try {
-      // Upload images to S3
-      const uploadedUrls = await Promise.all(imageFiles.map(uploadToS3));
-      
-      // Prepare the final form data
-      const finalFormData = {
-        ...formData,
-        images: uploadedUrls
-      };
+      const token = localStorage.getItem('token');
+      if (!token) throw new Error('Authentication required');
 
-      // Submit to your API
-      const response = await fetch('http://localhost:5000/api/issues', {
+      if (!formData.title || !formData.description || !formData.concernAuthority || 
+          !formData.colony || !formData.pincode) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      let finalFormData = { ...formData };
+
+      if (imageFiles.length > 0) {
+        const uploadedImages = await uploadImages(imageFiles);
+        finalFormData.images = uploadedImages.map((img) => img.url);
+      }
+
+      const issueResponse = await fetch('http://localhost:5000/api/issues', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(finalFormData)
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create issue');
+      if (!issueResponse.ok) {
+        const errorData = await issueResponse.json();
+        throw new Error(errorData.message || 'Failed to create issue');
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/');
-      }, 2000);
+      setTimeout(() => navigate('/'), 2000);
+
     } catch (err) {
+      console.error('Error creating issue:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -129,126 +154,162 @@ function UploadIssuePage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
   };
 
   return (
-    <div>
-        <Header/>
-    <Container maxWidth="md">
-        
-      <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Upload New Issue
-        </Typography>
+    <div className="page-container">
+      <Header />
+      <Container maxWidth="md" className="content-container">
+        <Paper elevation={2} className="upload-form-container">
+          <Typography variant="h5" className="page-title">
+            Report New Issue
+          </Typography>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 2 }}>Issue created successfully!</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 2 }}>Issue reported successfully!</Alert>}
 
-        <form onSubmit={handleSubmit}>
-          <TextField
-            fullWidth
-            required
-            label="Title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            required
-            multiline
-            rows={4}
-            label="Description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            required
-            select
-            label="Concern Authority"
-            name="concernAuthority"
-            value={formData.concernAuthority}
-            onChange={handleChange}
-            margin="normal"
-          >
-            {authorities.map((authority) => (
-              <MenuItem key={authority} value={authority}>
-                {authority}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            fullWidth
-            required
-            label="Colony"
-            name="colony"
-            value={formData.colony}
-            onChange={handleChange}
-            margin="normal"
-          />
-
-          <TextField
-            fullWidth
-            required
-            label="Pincode"
-            name="pincode"
-            value={formData.pincode}
-            onChange={handleChange}
-            margin="normal"
-          />
-
-          <Button
-            variant="contained"
-            component="label"
-            sx={{ mt: 2, mb: 2 }}
-          >
-            Upload Images (Max 3)
-            <input
-              type="file"
-              hidden
-              multiple
-              accept="image/*"
-              onChange={handleImageChange}
+          <form onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              required
+              label="Issue Title"
+              name="title"
+              value={formData.title}
+              onChange={handleChange}
+              margin="normal"
+              variant="outlined"
+              className="form-field"
             />
-          </Button>
 
-          {imageUrls.length > 0 && (
+            <TextField
+              fullWidth
+              required
+              multiline
+              rows={4}
+              label="Description"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              margin="normal"
+              variant="outlined"
+              className="form-field"
+            />
+
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              {imageUrls.map((url, index) => (
-                <img
-                  key={index}
-                  src={url}
-                  alt={`Preview ${index + 1}`}
-                  style={{ width: 100, height: 100, objectFit: 'cover' }}
-                />
-              ))}
-            </Box>
-          )}
+              <TextField
+                fullWidth
+                required
+                select
+                label="Priority Level"
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                margin="normal"
+                className="form-field"
+              >
+                {priorityLevels.map((priority) => (
+                  <MenuItem key={priority.value} value={priority.value}>
+                    {priority.label}
+                  </MenuItem>
+                ))}
+              </TextField>
 
-          <Button
-            fullWidth
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={loading}
-            sx={{ mt: 2 }}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Submit Issue'}
-          </Button>
-        </form>
-      </Paper>
-    </Container>
+              <TextField
+                fullWidth
+                required
+                select
+                label="Concern Authority"
+                name="concernAuthority"
+                value={formData.concernAuthority}
+                onChange={handleChange}
+                margin="normal"
+                className="form-field"
+              >
+                {authorities.map((authority) => (
+                  <MenuItem key={authority} value={authority}>
+                    {authority}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                fullWidth
+                required
+                label="Colony"
+                name="colony"
+                value={formData.colony}
+                onChange={handleChange}
+                margin="normal"
+                className="form-field"
+              />
+
+              <TextField
+                fullWidth
+                required
+                label="Pincode"
+                name="pincode"
+                value={formData.pincode}
+                onChange={handleChange}
+                margin="normal"
+                className="form-field"
+              />
+            </Box>
+
+            <Box className="image-upload-section">
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<CloudUploadIcon />}
+                className="upload-button"
+              >
+                Upload Images (Max 3)
+                <input
+                  type="file"
+                  hidden
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+              </Button>
+
+              <Box className="image-preview-container">
+                {imageUrls.map((url, index) => (
+                  <Box key={index} className="image-preview-item">
+                    <img
+                      src={url}
+                      alt={`Preview ${index + 1}`}
+                      className="preview-image"
+                    />
+                    <IconButton
+                      size="small"
+                      onClick={() => handleImageDelete(index)}
+                      className="delete-image-button"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+
+            <Button
+              fullWidth
+              type="submit"
+              variant="contained"
+              disabled={loading}
+              className="submit-button"
+            >
+              {loading ? <CircularProgress size={24} /> : 'Submit Issue'}
+            </Button>
+          </form>
+        </Paper>
+      </Container>
     </div>
   );
 }
