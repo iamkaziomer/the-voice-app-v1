@@ -22,7 +22,7 @@ function PrimaryPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [analytics, setAnalytics] = useState({
-    totalIssues: 5,
+    totalIssues: 6,
     resolvedIssues: 0,
     pendingIssues: 0
   });
