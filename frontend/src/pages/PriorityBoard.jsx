@@ -1,10 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PriorityIssue from '../components/PriorityIssue';
 import { Pagination, CircularProgress, Box, Container } from '@mui/material';
 import './PriorityBoard.css';
-
-const REFRESH_INTERVAL = 15000; // 15 seconds in milliseconds
-const ISSUES_PER_PAGE = 10;
 
 const PriorityBoard = () => {
   const [issues, setIssues] = useState([]);
@@ -12,11 +9,13 @@ const PriorityBoard = () => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const issuesPerPage = 10;
 
-  const fetchIssues = useCallback(async () => {
+  const fetchIssues = async () => {
     try {
+      setLoading(true);
       const response = await fetch(
-        `http://localhost:5000/api/issues?sort=supported&page=${page}&limit=${ISSUES_PER_PAGE}`
+        `http://localhost:5000/api/issues?sort=supported&page=${page}&limit=${issuesPerPage}`
       );
       
       if (!response.ok) {
@@ -24,33 +23,21 @@ const PriorityBoard = () => {
       }
 
       const data = await response.json();
-      
-      // Handle the array response directly
-      if (Array.isArray(data)) {
-        setIssues(data);
-        // If the backend doesn't provide total count, estimate based on current page data
-        setTotalPages(data.length < ISSUES_PER_PAGE ? page : page + 1);
-      } else {
-        throw new Error('Invalid data format received from server');
-      }
+      setIssues(data);
+      // Assuming total count is returned from backend
+      // setTotalPages(Math.ceil(data.total / issuesPerPage));
+      setTotalPages(5); // Temporary hardcoded value
     } catch (err) {
       console.error('Error fetching issues:', err);
       setError('Failed to load issues');
     } finally {
       setLoading(false);
     }
-  }, [page]); // Include page in dependency array
+  };
 
   useEffect(() => {
-    // Initial fetch
     fetchIssues();
-
-    // Set up periodic refresh
-    const intervalId = setInterval(fetchIssues, REFRESH_INTERVAL);
-
-    // Cleanup interval on component unmount
-    return () => clearInterval(intervalId);
-  }, [fetchIssues]); // Use fetchIssues in dependency array
+  }, [page]);
 
   const handleUpvote = async (issueId) => {
     try {
@@ -74,7 +61,7 @@ const PriorityBoard = () => {
         throw new Error('Failed to upvote');
       }
 
-      // Refresh issues immediately after successful upvote
+      // Refresh issues after successful upvote
       fetchIssues();
     } catch (error) {
       console.error('Error upvoting:', error);
@@ -83,12 +70,10 @@ const PriorityBoard = () => {
   };
 
   const handlePageChange = (event, newPage) => {
-    // Reset loading state when changing pages
-    setLoading(true);
     setPage(newPage);
   };
 
-  if (loading && issues.length === 0) {
+  if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -111,17 +96,11 @@ const PriorityBoard = () => {
           <PriorityIssue
             key={issue._id}
             issue={issue}
-            rank={index + 1 + (page - 1) * ISSUES_PER_PAGE}
+            rank={index + 1 + (page - 1) * issuesPerPage}
             onUpvote={handleUpvote}
           />
         ))}
       </div>
-
-      {loading && (
-        <Box display="flex" justifyContent="center" mt={2}>
-          <CircularProgress size={24} />
-        </Box>
-      )}
 
       <Box display="flex" justifyContent="center" mt={4} mb={4}>
         <Pagination
@@ -130,7 +109,6 @@ const PriorityBoard = () => {
           onChange={handlePageChange}
           color="primary"
           size="large"
-          disabled={loading}
         />
       </Box>
     </Container>

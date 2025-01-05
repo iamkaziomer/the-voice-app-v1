@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import HomePage from './pages/HomePage';
 import PrimaryPage from './pages/PrimaryPage';
 import PriorityBoard from './pages/PriorityBoard';
+import BlogsPage from './pages/BlogsPage';
 import UploadIssuePage from './pages/UploadIssuePage';
 import Header from './components/Header';
 import './App.css';
@@ -24,6 +25,7 @@ function App() {
               <Route path="/primary" element={<PrimaryPage />} />
               <Route path="/issues" element={<HomePage />} />
               <Route path="/priority" element={<PriorityBoard />} />
+              <Route path="/blogs" element={<BlogsPage />} />
               <Route path="/upload-issue" element={<UploadIssuePage />} />
               
               {/* Catch all route - redirect to primary */}

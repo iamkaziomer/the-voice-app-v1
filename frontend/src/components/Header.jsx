@@ -70,6 +70,14 @@ function Header() {
   const [isSignupOpen, setIsSignupOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
 
+  // Navigation items array
+  const navigationItems = [
+    { label: 'Dashboard', path: '/primary' },
+    { label: 'Priority Board', path: '/priority' },
+    { label: 'All Issues', path: '/issues' },
+    { label: 'Blogs', path: '/blogs' }
+  ];
+
   const handleMenuClick = (event) => {
     setMenuAnchor(event.currentTarget);
   };
@@ -106,12 +114,6 @@ function Header() {
     setIsLoginOpen(true);
   };
 
-  const navigationItems = [
-    { label: 'Dashboard', path: '/primary' },
-    { label: 'Priority Board', path: '/priority' },
-    { label: 'All Issues', path: '/issues' }
-  ];
-
   return (
     <>
       <StyledAppBar position="fixed">
@@ -119,11 +121,11 @@ function Header() {
           <Toolbar sx={{ justifyContent: 'space-between', padding: '8px 0' }}>
             {/* Logo Section */}
             <LogoContainer onClick={() => navigate('/')} sx={{ flex: isMobile ? 'auto' : 1 }}>
-            <img 
-  src={voiceLogo}
-  alt="Voice Logo" 
-  style={{ height: '80px', width: 'auto' }}
-/>
+              <img 
+                src={voiceLogo}
+                alt="Voice Logo" 
+                style={{ height: '80px', width: 'auto' }}
+              />
               <Typography
                 variant="h6"
                 sx={{
